@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--   Product Price List -->
+    <record id="view_partner_email_wiz" model="ir.ui.view">
+          <field name="name">Partner Email</field>
+          <field name="model">partner.email.wiz</field>
+          <field name="arch" type="xml">
+            <form string="Partner Email">
+                <group string="Are you sure want to send email for card.">
+                </group>
+                <footer>
+                    <button name="send_email" string="Send Email"  type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-default" special="cancel" />
+                </footer>
+            </form>
+          </field>
+    </record>
+
+    <act_window id="action_partner_email_wiz"
+            key2="client_action_multi" name="Send Email"
+            res_model="partner.email.wiz" src_model="res.partner"
+            view_mode="form" target="new" view_type="form" />
+
+</odoo>

@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="0">
+
+        <!--Email template -->
+        <record id="email_template_partner_barcode" model="mail.template">
+            <field name="name">Partner Barcode - Send by Email</field>
+            <field name="email_from">${(object.user_id.email and '&quot;%s&quot; &lt;%s&gt;' % (object.user_id.name, object.user_id.email) or '')|safe}</field>
+            <field name="subject">Barcode (Ref ${object.name or 'n/a' })</field>
+            <field name="partner_to">${object.id}</field>
+            <field name="model_id" ref="base.model_res_partner"/>
+            <field name="auto_delete" eval="False"/>
+            <field name="report_template" ref="report_contact_label"/>
+            <field name="report_name">${(object.name or '')}_${object.barcode or ''}</field>
+            <field name="lang">${object.lang}</field>
+            <field name="body_html"><![CDATA[
+<p>Dear ${object.name}</p>
+<p>
+Here is your card, please find attachment.
+</p>
+
+<p>You can reply to this email if you have any questions.</p>
+<p>Thank you,</p>
+
+<p style="color:#888888;">
+% if object.user_id and object.user_id.signature:
+    ${object.user_id.signature | safe}
+% endif
+</p>
+]]></field>
+        </record>
+
+        <!--Email template -->
+        <record id="email_template_partner_journal" model="mail.template">
+            <field name="name">Partner Journal - Send by Email</field>
+            <field name="email_from">${(object.user_id.email and '&quot;%s&quot; &lt;%s&gt;' % (object.user_id.name, object.user_id.email) or '')|safe}</field>
+            <field name="subject">Journal items (Ref ${object.name or 'n/a' })</field>
+            <field name="partner_to">${object.id}</field>
+            <field name="model_id" ref="base.model_res_partner"/>
+            <field name="auto_delete" eval="False"/>
+            <field name="lang">${object.lang}</field>
+            <field name="body_html"><![CDATA[
+% set move_line_ids = ctx.get('move_line_ids', [])     
+<p>Dear ${object.name}</p>
+<p>
+Here is your Journal entries.
+</p>
+
+<p>
+    <table cellspacing="0" cellpadding="0" width="100%" bgcolor="#fff" style="background-color:#fff;">
+        <tr><td style="padding: 15px;">
+            <span style="color:#666666;font-size:13px;">Here is your Journal Entries <strong>${object.name}</strong>.</span>
+            <table cellspacing="0" cellpadding="0" width="100%" style="margin-top:30px;color:#666666;">
+                <thead>
+                    <tr style="color:#9A6C8E; font-size:12px;">
+                        <th style="width:15%;text-align:right;" align="left">Date</th>
+                        <th style="width:20%;text-align:right;" align="left">Journal Entry</th>
+                        <th style="width:20%;text-align:right;" align="left">Journal</th>
+                        <th style="width:15%;text-align:right;" align="right">Debit</th>
+                        <th style="width:15%;text-align:right;" align="right">Credit</th>
+                        <th style="width:15%;text-align:right;" align="left">Due Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    % for line in move_line_ids:
+                        <tr>
+                            <td style="width:15%;text-align:right;" align="left">
+                                ${line.date}
+                            </td>
+                            <td style="width:20%;text-align:right;" align="left">
+                                ${line.move_id.name}
+                            </td>
+                            <td style="width:20%;text-align:right;" align="left">
+                                ${line.journal_id.name}
+                            </td>
+                            <td style="width:15%;text-align:right;" align="right">
+                                ${"%.2f" % line.debit}
+                            </td>
+                            <td style="width:15%;text-align:right;" align="right">
+                                ${"%.2f" % line.credit}
+                            </td>
+                            <td style="width:15%;text-align:right;" align="left">
+                                ${line.date_maturity}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="5" style="height:1px;background-color:#e3e3e3;"></td>
+                        </tr>
+                    % endfor
+                </tbody>
+            </table>
+        </tr>
+    </table>
+</p>
+
+<p>You can reply to this email if you have any questions.</p>
+<p>Thank you,</p>
+
+<p style="color:#888888;">
+% if object.user_id and object.user_id.signature:
+    ${object.user_id.signature | safe}
+% endif
+</p>
+]]></field>
+        </record>
+
+    </data>
+</odoo>
