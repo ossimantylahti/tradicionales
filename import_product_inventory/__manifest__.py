@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 {'name': 'Import product in Batch',
- 'version': '11.0.7.5.2019',
+ 'version': '12.0.8.5.2019',
  'category': 'other',
  'depends': ['l10n_mx','l10n_mx_edi','sale_stock','purchase'],
  'author': "Terra Colligo",

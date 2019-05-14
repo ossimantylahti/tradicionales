@@ -20,7 +20,7 @@ class ProductImportBatch(models.Model):
     def action_import_product_data(self):
         product_obj = self.env['product.product']
         category_obj = self.env['product.category']
-        uom_obj = self.env['product.uom']
+        uom_obj = self.env['uom.uom']
         warehouse_obj = self.env['stock.warehouse']
         inventory_obj = self.env['stock.inventory']
         route_mapping_dict = {}
@@ -65,7 +65,7 @@ class ProductImportBatch(models.Model):
                     default_code = product.get('default_code')
                     product_name = product.get('name')
                     product_type = product.get('type')
-                    barcode = product.get('barcode')
+                    barcode = product.get('barcode') or False
                     routes = product.get('route_ids/id')
                     purchase_ok = product.get('purchase_ok')
                     sale_ok = product.get('sale_ok')
@@ -200,7 +200,6 @@ class ProductImportBatch(models.Model):
                         product_exist = self.env.ref(external_id,False)
                     if not product_exist and default_code:
                         product_exist = product_obj.search([('default_code','=',default_code)],limit=1)
-
                     try:
                         cr.execute('SAVEPOINT model_batch_product_save')
                         if product_exist:
