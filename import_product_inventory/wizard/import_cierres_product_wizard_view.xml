@@ -20,18 +20,18 @@
         </record>
 
         <record id="action_import_cierres_purchase_order_from_xml_file" model="ir.actions.act_window">
-            <field name="name">Import Cierres Product</field>
+            <field name="name">Import Cierres</field>
             <field name="res_model">import.product.from.cierres.file</field>
             <field name="view_type">form</field>
             <field name="view_mode">form</field>
             <field name="target">new</field>
          </record>
 
-        <menuitem id="main_action_cierries_import_purchase_order_from_xml_file"
+        <!-- <menuitem id="main_action_cierries_import_purchase_order_from_xml_file"
             parent="stock.menu_stock_inventory_control"
-            name="Import Cierres Product"
+            name="Import Cierres"
             action="action_import_cierres_purchase_order_from_xml_file"
             groups="import_product_inventory.group_import_product_inventory"
-            sequence="151"/>
+            sequence="151"/> -->
     </data>
 </odoo>

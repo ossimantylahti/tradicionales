@@ -1,10 +1,18 @@
 # -*- coding: utf-8 -*-
-from odoo import models,fields, api
+from odoo import models,fields, api, tools
 import json
 import logging
+try:
+    from urllib.parse import urlparse
+except ImportError:
+    from urlparse import urlparse
+import base64
+import requests
 from psycopg2 import IntegrityError
 from odoo.tools.safe_eval import safe_eval
 _logger = logging.getLogger(__name__)
+
+
 class ProductImportBatch(models.Model):
     _name = 'product.import.batch'
     _order = 'create_date desc'
@@ -14,15 +22,16 @@ class ProductImportBatch(models.Model):
     data = fields.Text('Batch Data',default="{}")
     sheet_name = fields.Char('Sheet Name')
     state = fields.Selection([('pending','Pending'),('imported','Imported'),('failed','Failed')],string='Status',default='pending')
-    inventory_option = fields.Selection([('ADD','ADD'),('SET','SET')],string="Inventory Option")
+    inventory_option = fields.Selection([('ADD','ADD'),('SET','SET'),('archive','Archive'),('archive_rename','Archive & Rename')],string="Inventory Option")
 
     @api.multi
     def action_import_product_data(self):
         product_obj = self.env['product.product']
         category_obj = self.env['product.category']
-        uom_obj = self.env['uom.uom']
+        uom_obj = self.env['product.uom']
         warehouse_obj = self.env['stock.warehouse']
         inventory_obj = self.env['stock.inventory']
+        pos_category_obj = self.env['pos.category']
         route_mapping_dict = {}
         supplier_tax_mapping_dict = {}
         customer_tax_mapping_dict = {}
@@ -31,13 +40,15 @@ class ProductImportBatch(models.Model):
         #To manange savepoiunt, we used ids instead of direct browsable record.
         ids = self.ids
         cr = self._cr
-        product_columns = ['id','categ_id/name','name','barcode','default_code','unit_of_measurement','uom_po_id','l10n_mx_edi_code_sat_id','supplier_taxes_id','taxes_id','type','route_ids/id','purchase_ok','sale_ok','standard_price','lst_price','seller_ids/name/name']
+        product_columns = ['id','Archive','invoice_policy','purchase_method','categ_id/name','pos_categ_id/name','available_in_pos','name','barcode','default_code','unit_of_measurement','uom_po_id','l10n_mx_edi_code_sat_id','supplier_taxes_id','taxes_id','type','route_ids/id','purchase_ok','sale_ok','standard_price','lst_price','seller_ids/name/name','image_medium']
         category_mapping_dict = {}
         uom_mapping_dict = {}
         po_uom_mapping_dict = {}
         location_id_dict = {}
         company_id = self.env.user.company_id.id
         uid = self._uid
+        category_mapping_dict = dict((c.complete_name,c.id) for c in category_obj.search([]))
+        pos_category_mapping_dict = dict((c.complete_categ_name,c.id) for c in pos_category_obj.search([]))
 
         for batch_id in ids:
             try:
@@ -54,9 +65,17 @@ class ProductImportBatch(models.Model):
                 for product in data:
                     if not inventory_columns:
                         inventory_columns = list(set(product.keys())-set(product_columns))
+                        if 'create_date' in inventory_columns:
+                            inventory_columns.remove('create_date')
 
+                    active = product.get('Archive')
                     category_name = product.get('categ_id/name')
+                    pos_category_name = product.get('pos_categ_id/name')
+                    available_in_pos = product.get('available_in_pos')
+                    invoice_policy = product.get('invoice_policy')
+                    purchase_method = product.get('purchase_method')
                     uom_name = product.get('unit_of_measurement')
+                    image_medium = product.get('image_medium')
                     uom_po_name = product.get('uom_po_id')
                     sat_id = product.get('l10n_mx_edi_code_sat_id')
                     supplier_taxes = product.get('supplier_taxes_id')
@@ -78,6 +97,44 @@ class ProductImportBatch(models.Model):
                             category_exist = category_obj.create({'name':category_name}) #,'category_code':category_code
                         category_mapping_dict.update({category_name:category_exist.id})
                     category_id = category_mapping_dict.get(category_name)
+
+                    if pos_category_name and pos_category_name not in pos_category_mapping_dict:
+                        pos_categories = pos_category_name.split(" / ")
+                        pos_categories = list(map(str.strip, pos_categories))
+                        pos_new_categ_list = pos_categories[:-1]
+
+                        pos_top_category = pos_categories[0]
+                        exist_pos_top_categories = pos_category_obj.search([('name','=',pos_top_category),('parent_id','=',False)])
+                        if not exist_pos_top_categories:
+                            exist_pos_top_categories = pos_category_obj.create({'name':pos_top_category})
+                        top_pos_path_exist = exist_pos_top_categories.filtered(lambda x:x.complete_categ_name==pos_category_name)
+                        if top_pos_path_exist:
+                            pos_category_mapping_dict.update({top_pos_path_exist[0].complete_categ_name:top_pos_path_exist[0].id})
+                        else:
+                            path_exist = False
+                            existed_pos_all_child_categories = pos_category_obj.search([('id','child_of', exist_pos_top_categories.ids)])
+                            while pos_new_categ_list:
+                                categ_path = " / ".join(pos_new_categ_list)
+                                path_exist = existed_pos_all_child_categories.filtered(lambda x:x.complete_categ_name==categ_path)
+                                if path_exist:
+                                    path_exist = path_exist[0]
+                                    break
+                                pos_new_categ_list = pos_new_categ_list[:-1]
+                            if not path_exist:
+                                path_exist = exist_pos_top_categories[0]
+
+                            parent_categ = path_exist
+                            exist_category = parent_categ
+                            for cat in pos_categories[len(path_exist.complete_categ_name.split(" / ")):]:
+                                exist_category = pos_category_obj.create({'name':cat,'parent_id':parent_categ.id})
+                                parent_categ = exist_category
+                                if exist_category.complete_categ_name not in pos_category_mapping_dict:
+                                    pos_category_mapping_dict.update({exist_category.complete_categ_name:exist_category.id})
+                            else:
+                                pos_category_mapping_dict.update({pos_category_name:exist_category.id})
+
+                    pos_category_id = pos_category_mapping_dict.get(pos_category_name)
+
                     if uom_name and uom_name not in uom_mapping_dict:
                         uom_exist = uom_obj.search([('name','=',uom_name)],limit=1)
                         uom_mapping_dict.update({uom_name:uom_exist.id})
@@ -180,7 +237,20 @@ class ProductImportBatch(models.Model):
                         'sale_ok' : sale_ok,
                         'standard_price' : standard_price,
                         'lst_price' : lst_price,
+                        'available_in_pos' : available_in_pos,
+                        'invoice_policy': invoice_policy,
+                        'purchase_method': purchase_method,
                         }
+                    if image_medium:
+                        parsed_url = urlparse(image_medium)
+                        if parsed_url.scheme:
+                            try:
+                                content = base64.b64encode(requests.get(image_medium,headers=request_header).content)
+                                product_vals['image_medium'] = content
+                            except Exception as e:
+                                pass
+                    if pos_category_id:
+                        product_vals.update({'pos_categ_id' : pos_category_id})
                     if route_ids:
                         product_vals.update({'route_ids' : [(6,0,route_ids)]})
                     if sat_rec_id:
@@ -195,15 +265,29 @@ class ProductImportBatch(models.Model):
                         product_vals.update({'uom_id' : uom_id,'uom_po_id':uom_id})
                     if po_uom_id:
                         product_vals.update({'uom_po_id' : po_uom_id})
+                    if inventory_option == 'archive' and active:
+                        if active == '0':
+                            product_vals.update({'active' : True})
+                        elif active == '1':
+                            product_vals.update({'active' : False})
+                    if inventory_option == 'archive_rename' and active:
+                        if active == '0':
+                            product_vals.update({'active' : True, 'name': product_name})
+                        elif active == '1':
+                            product_vals.update({'active' : False, 'name': product_name})
                     product_exist=False
                     if external_id:
                         product_exist = self.env.ref(external_id,False)
                     if not product_exist and default_code:
-                        product_exist = product_obj.search([('default_code','=',default_code)],limit=1)
+                        product_exist = product_obj.sudo().search(['|', ('active', '=', False), ('active', '=', True), ('default_code','=',default_code), ('default_code','=',default_code)],limit=1)
+
                     try:
                         cr.execute('SAVEPOINT model_batch_product_save')
                         if product_exist:
                             product_exist.write(product_vals)
+                            if product_vals.get('image_medium') and len(product_exist.product_tmpl_id.product_variant_ids)==1:
+                                resized_images = tools.image_get_resized_images(product_vals.get('image_medium'), return_big=True, avoid_resize_medium=True)
+                                product_exist.product_tmpl_id.write({'image_medium' : resized_images['image_medium'], 'image_small': resized_images['image_small'], 'image' : resized_images['image']})
                         else:
                             product_exist = product_obj.create(product_vals)
                         self.get_create_xml_id(product_exist, external_id)
@@ -215,6 +299,9 @@ class ProductImportBatch(models.Model):
                             product_vals.pop('barcode')
                             if product_exist:
                                 product_exist.write(product_vals)
+                                if product_vals.get('image_medium') and len(product_exist.product_tmpl_id.product_variant_ids)==1:
+                                    resized_images = tools.image_get_resized_images(product_vals.get('image_medium'), return_big=True, avoid_resize_medium=True)
+                                    product_exist.product_tmpl_id.write({'image_medium' : resized_images['image_medium'], 'image_small': resized_images['image_small'], 'image' : resized_images['image']})
                             else:
                                 product_exist = product_obj.create(product_vals)
                             self.get_create_xml_id(product_exist, external_id)

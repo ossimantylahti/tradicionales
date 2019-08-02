@@ -1,9 +1,8 @@
-# -*- coding: utf-8 -*-
-
 {'name': 'Import product in Batch',
- 'version': '12.0.8.5.2019 b',
+ 'version': '11.5.23.7.2019',
+ 'summary': 'Mass import-export of products',
  'category': 'other',
- 'depends': ['l10n_mx','l10n_mx_edi','sale_stock','purchase'],
+ 'depends': ['l10n_mx','l10n_mx_edi','sale_stock','purchase','point_of_sale'],
  'author': "Terra Colligo",
  'license': 'OPL-1',
  'website': '',

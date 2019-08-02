@@ -8,7 +8,7 @@ from odoo.tools.mimetypes import guess_mimetype
 import os
 import json
 import base64
-    
+
 import logging
 _logger = logging.getLogger(__name__)
 try:
@@ -37,29 +37,29 @@ EXTENSIONS = {
 }
 class import_product_from_file(models.TransientModel):
     _name ='import.product.from.file'
-    
+
     import_file = fields.Binary("Import Excel File",required=False)
     file_name = fields.Char("Filename")
-    inventory_option = fields.Selection([('ADD','ADD'),('SET','SET')],string="Inventory Option",
+    inventory_option = fields.Selection([('ADD','ADD'),('SET','SET'),('archive','Archive'),('archive_rename','Archive & Rename')],string="Inventory Option",
                                         help="""
                                         If ADD, system will add quantity in existing Quantity for particualar product.
                                         i.e. Product Apple have 10 Quantity in Warehouse A and user try to import inventory with option ADD and Product Apple with quantity=100 in file,
                                              system will add 100 quantity in existing Quantity, so after import, inventory of Apple product is 110.
-                                        
-                                        If SET, system will set whatever quantity given in file for particular product. 
+
+                                        If SET, system will set whatever quantity given in file for particular product.
                                         i.e. Product Apple have 10 Quantity in Warehouse A and user try to import inventory with option SET and Product Apple with quantity=100 in file,
                                              system will set 100 quantity for product Apple, so after import, inventory of Apple product is 100.
                                         """)
-    
+
     @api.multi
     def import_product_and_inventory_from_file(self):
         self.ensure_one()
         if not self.import_file:
-            raise Warning("Please select the file first.") 
+            raise Warning("Please select the file first.")
         p, ext = os.path.splitext(self.file_name)
         if ext[1:] not in ['xls','xlsx']:
             raise Warning(_("Unsupported file format \"{}\", import only supports XLS, XLSX").format(self.file_name))
-            
+
         # guess mimetype from file content
         options = {u'datetime_format': u'', u'date_format': u'', u'keep_matches': False, u'encoding': u'utf-8', u'fields': [], u'quoting': u'"', u'headers': True, u'separator': u',', u'float_thousand_separator': u',', u'float_decimal_separator': u'.', u'advanced': False}
         import_file = base64.b64decode(self.import_file)
@@ -75,7 +75,7 @@ class import_product_from_file(models.TransientModel):
                 result = getattr(self, '_read_' + ext[1:])(options,import_file)
         if not result and req:
             raise Warning(_("Unable to load \"{extension}\" file: requires Python module \"{modname}\"").format(extension=file_extension, modname=req))
-        
+
         import_batch_obj = self.env['product.import.batch']
         for sheet_name,rows in result:
             if rows:
@@ -88,7 +88,7 @@ class import_product_from_file(models.TransientModel):
             raise Warning('Please wait a moment, system will import product in batch.')
             #return {'type': 'ir.actions.act_window_close'}
         raise ValueError(_("Unsupported file format \"{}\", import only supports XLS and XLSX").format(self.file_name))
-    
+
     def split_rows(self, array, size):
         arrs = []
         while len(array) > size:
@@ -96,15 +96,15 @@ class import_product_from_file(models.TransientModel):
             arrs.append(pice)
             array = array[size:]
         arrs.append(array)
-        
+
         return arrs
-    
+
     @api.multi
     def _read_xls(self, options,import_file):
         """ Read file content, using xlrd lib """
         book = xlrd.open_workbook(file_contents=import_file)
         return self._read_xls_book(book)
-    
+
     def _read_xls_book(self, book):
         result = []
         for sheet in book.sheets():
@@ -149,11 +149,10 @@ class import_product_from_file(models.TransientModel):
                         dictionary.pop('')
                         dict_val = list(set(dictionary.values()))
                         if not dictionary or (len(dict_val)==1 and not dict_val[0]):
-                            continue    
+                            continue
                     records.append(dictionary)
-            result.append((sheet_name, records))         
+            result.append((sheet_name, records))
         return result
-    
+
     # use the same method for xlsx and xls files
     _read_xlsx = _read_xls
-    
