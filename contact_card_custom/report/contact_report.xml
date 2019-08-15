@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<template id="report_simple_contact_barcode">
+    <t t-call="web.external_layout">
+        <t t-set="o" t-value="o.with_context({'lang':o.lang})" />
+        <div class="page">
+            <div style="padding:0; text-align: center; width: 30%">
+                <table class="table">
+                    <thead>
+                        <tr style="width: 3in;" align="center">
+                            <td style="width: 2.63in; text-align: center;" colspan="2" class="col-xs-8 danger">
+                                <span t-field="o.name"/>
+                            </td>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="width: 1in;">
+                            <td style="text-align: center; vertical-align: middle;" class="col-xs-5">
+                                <t t-if="o.barcode">
+                                    <img t-att-src="'/report/barcode/?type=%s&amp;value=%s&amp;width=%s&amp;height=%s' % ('Code128', o.barcode, 600, 150)" style="width:100%;height:20%;"/>
+                                    <span t-field="o.barcode"/>
+                                </t>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </t>
+</template>
+
+<template id="report_contactbarcode">
+    <t t-call="web.html_container">
+        <t t-foreach="docs" t-as="o">
+            <t t-call="contact_card_custom.report_simple_contact_barcode" t-lang="o.lang"/>
+        </t>
+    </t>
+</template>
+
+<report
+    id="report_contact_label"
+    string="Barcode"
+    model="res.partner"
+    report_type="qweb-pdf"
+    name="contact_card_custom.report_contactbarcode"
+    file="contact_card_custom.report_contactbarcode"
+    print_report_name="'%s_%s' % (object.name,object.barcode)"
+/>
+
+</odoo>

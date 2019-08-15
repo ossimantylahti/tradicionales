@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--   Product Price List -->
+    <record id="view_send_journal_email_wiz" model="ir.ui.view">
+          <field name="name">Journal Email</field>
+          <field name="model">send.journal.wiz</field>
+          <field name="arch" type="xml">
+            <form string="Journal Email">
+                <group col="4">
+                    <field name="start_date" required="1"/>
+                    <field name="end_date" required="1"/>
+                </group>
+                <footer>
+                    <button name="send_email" string="Send Email"  type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-default" special="cancel" />
+                </footer>
+            </form>
+          </field>
+    </record>
+
+    <act_window id="action_send_journal_email_wiz"
+            key2="client_action_multi" name="Send Journal Email"
+            res_model="send.journal.wiz" src_model="res.partner"
+            view_mode="form" target="new" view_type="form" />
+
+</odoo>
